@@ -15,7 +15,9 @@
 
         <link rel="stylesheet" type="text/css" href="<?= active_theme_url()."/assets/css/plugins.css?v=".VERSION ?>">
         <link rel="stylesheet" type="text/css" href="<?= active_theme_url()."/assets/css/core.css?v=".VERSION ?>">
-
+    
+        <?php require_once(APPPATH.'/views/fragments/google-tag-manager.fragment.php'); ?>
+        
         <title><?= __("Password Reset") ?></title>
     </head>
 

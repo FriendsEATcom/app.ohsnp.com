@@ -15,7 +15,9 @@
         <link rel="stylesheet" type="text/css" href="<?= APPURL."/assets/css/plugins.css?v=".VERSION ?>">
         <link rel="stylesheet" type="text/css" href="<?= APPURL."/assets/css/filemanager.css?v=".VERSION ?>">
         <link rel="stylesheet" type="text/css" href="<?= APPURL."/assets/css/core.css?v=".VERSION ?>">
-
+    
+        <?php require_once(APPPATH.'/views/fragments/google-tag-manager.fragment.php'); ?>
+        
         <title><?= $Post->isAvailable() ? __("Edit Post") : __("New Post") ?></title>
     </head>
 

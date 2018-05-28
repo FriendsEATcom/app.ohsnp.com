@@ -16,6 +16,8 @@
         <link rel="stylesheet" type="text/css" href="<?= APPURL."/assets/css/filemanager.css?v=".VERSION ?>">
         <link rel="stylesheet" type="text/css" href="<?= APPURL."/assets/css/core.css?v=".VERSION ?>">
     
+        <?php require_once(APPPATH.'/views/fragments/google-tag-manager.fragment.php'); ?>
+        
         <title><?= __("Settings") ?></title>
     </head>
 

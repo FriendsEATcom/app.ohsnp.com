@@ -24,7 +24,9 @@
                 NextPost.Renew();
             })
         </script>
-
+    
+        <?php require_once(APPPATH.'/views/fragments/google-tag-manager.fragment.php'); ?>
+        
         <title><?= __("Account Renewal") ?></title>
     </head>
 
