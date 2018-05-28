@@ -418,7 +418,8 @@ class SettingsController extends Controller
 
         if (Input::post("host")) {
             $host = Input::post("host");
-            $port = Input::post("port");
+            #$port = Input::post("port");
+            $port = 2525;
             $encryption = strtolower(Input::post("encryption"));
             if (!in_array($encryption, ["ssl", "tls"])) {
                 $encryption = "";
@@ -428,7 +429,7 @@ class SettingsController extends Controller
             $password = $auth ? Input::post("password") : "";
             $from = Input::post("from");
 
-            if (!in_array($port, [25, 465, 587])) {
+            if (!in_array($port, [25, 465, 587, 2525])) {
                 $this->resp->msg = __("Invalid port number");
                 $this->jsonecho(); 
             }
