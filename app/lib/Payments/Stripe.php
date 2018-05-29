@@ -18,6 +18,7 @@ class Stripe extends AbstractGateway
     {
         $this->integrations = \Controller::model("GeneralData", "integrations");
         \Stripe\Stripe::setApiKey($this->integrations->get("data.stripe.secret_key"));
+        \Stripe\Stripe::setApiVersion("2018-05-21");
     }
 
 
@@ -62,6 +63,9 @@ class Stripe extends AbstractGateway
         $Order = $this->getOrder();
         $User = $this->getUser();
 
+        // Check if the order currency is zero decimal currency
+        $iszdc = isZeroDecimalCurrency($Order->get("currency"));
+
         if (empty($params["token"])) {
             $Order->delete();
             throw new \Exception('Token is required');
@@ -83,7 +87,7 @@ class Stripe extends AbstractGateway
                 // Not found, expected result
             }
 
-            if ($subscription->status == "active") {
+            if (isset($subscription->status) && $subscription->status == "active") {
                 // This is unexpected, data modified by external factors
                 // Prevent order
                 $Order->delete();
@@ -157,7 +161,7 @@ class Stripe extends AbstractGateway
         $plan_id = "plan"
                  . "-" . $Order->get("data.package.id")
                  . "-" . $Order->get("data.plan")
-                 . "-" . (round($Order->get("total"), 2) * 100)
+                 . "-" . ($iszdc ? round($Order->get("total")) : $Order->get("total") * 100)
                  . "-" . strtolower($Order->get("currency"));
         try {
             $plan = \Stripe\Plan::retrieve($plan_id);
@@ -171,11 +175,13 @@ class Stripe extends AbstractGateway
             try {
                 $plan = \Stripe\Plan::create([
                     "id" => $plan_id,
-                    "amount" => round($Order->get("total"), 2) * 100,
+                    "amount" => $iszdc ? round($Order->get("total")) : $Order->get("total") * 100,
                     "interval" => $Order->get("data.plan") == "annual" ? "year" : "month",
-                    "name" => $Order->get("data.package.title")
-                            . " - " 
-                            . ($Order->get("data.plan") == "annual" ? "Annual" : "Monthly"),
+                    "product" => [
+                        "name" => $Order->get("data.package.title")
+                                . " - " 
+                                . ($Order->get("data.plan") == "annual" ? "Annual" : "Monthly")
+                    ],
                     "currency" => $Order->get("currency")
                 ]);
             } catch (\Exception $e) {
@@ -196,9 +202,12 @@ class Stripe extends AbstractGateway
         }
 
         $ActivePackage = \Controller::model("Package", $User->get("package_id"));
-        if (!$ActivePackage->isAvailable()) {
+        if (!$ActivePackage->isAvailable() || $trial_end < time()) {
             // User package is not available,
             // User is either is in trial mode or subscribing to the new package
+            // 
+            // Or user has subscribed to the package 
+            // but not made a payment after the expire date
             $trial_end = "now";
         }
 
@@ -253,6 +262,9 @@ class Stripe extends AbstractGateway
     {
         $Order = $this->getOrder();
 
+        // Check if the order currency is zero decimal currency
+        $iszdc = isZeroDecimalCurrency($Order->get("currency"));
+
         if (empty($params["token"])) {
             throw new \Exception('Token is required');
         }
@@ -260,7 +272,7 @@ class Stripe extends AbstractGateway
 
         try {
             $Charge = \Stripe\Charge::create([
-                "amount" => round($Order->get("total"), 2) * 100,
+                "amount" => $iszdc ? round($Order->get("total")) : $Order->get("total") * 100,
                 "currency" => $Order->get("currency"),
                 "source" => $token,
                 "description" => "Payment for Order #".$Order->get("id"),
@@ -279,7 +291,7 @@ class Stripe extends AbstractGateway
                 // Updating order...
                 $Order->set("status","paid")
                       ->set("payment_id", $resp->id)
-                      ->set("paid", $resp->amount / 100)
+                      ->set("paid", $iszdc ? $resp->amount : ($resp->amount / 100))
                       ->update();
 
                 try {
@@ -398,7 +410,7 @@ class Stripe extends AbstractGateway
                 return $subscription;
             }
         } catch (\Exception $e) {
-            return $e->getMessage();
+            throw $e;
         }
 
         return null;
@@ -444,8 +456,8 @@ class Stripe extends AbstractGateway
         }
 
         switch ($event->type) {
-            case "charge.succeeded":
-                $this->whChargeSucceeded($event);
+            case "invoice.payment_succeeded":
+                $this->whInvoicePaymentSucceeded($event);
                 break;
 
             case "customer.subscription.deleted":
@@ -465,31 +477,23 @@ class Stripe extends AbstractGateway
      * @param  \Stripe\Event $event 
      * @return null        
      */
-    private function whChargeSucceeded($event)
+    private function whInvoicePaymentSucceeded($event)
     {
         $eventobj = $event->data->object;
-        if (empty($eventobj->invoice)) {
-            // Invalid event data
+
+        if (empty($eventobj->charge)) {
+            // Invalid charge id
             http_response_code(400);
             exit;
         }
 
-        $invoice_id = $eventobj->invoice;
-        try {
-            $invoice = \Stripe\Invoice::retrieve($invoice_id);
-        } catch (\Exception $e) {
-            // Couldn't get invoice data
-            http_response_code(400);
-            exit;
-        }
-
-        if (empty($invoice->subscription)) {
+        if (empty($eventobj->subscription)) {
             // Invalid subscription id
             http_response_code(400);
             exit;
         }
 
-        $subscription_id = $invoice->subscription;
+        $subscription_id = $eventobj->subscription;
         try {
             $subscription = \Stripe\Subscription::retrieve($subscription_id);
         } catch (\Exception $e) {
@@ -512,19 +516,28 @@ class Stripe extends AbstractGateway
             exit;
         }
 
+        // Check if the order currency is zero decimal currency
+        $iszdc = isZeroDecimalCurrency($Order->get("currency"));
+
         $order_data = json_decode($Order->get("data"));
         $order_data->is_subscription = false;
         $order_data->is_subscription_payment = true;
 
 
-        $NewOrder = \Controller::model("Order");
+        $NewOrder = \Controller::model("Order", $eventobj->charge);
+        if ($NewOrder->isAvailable()) {
+            // event already handled
+            return;    
+        }
+
         $NewOrder->set("user_id", $Order->get("user_id"))
                  ->set("data", json_encode($order_data))
                  ->set("status", "paid")
                  ->set("payment_gateway", $Order->get("payment_gateway"))
-                 ->set("payment_id", $eventobj->id)
+                 ->set("payment_id", $eventobj->charge)
                  ->set("total", $Order->get("total"))
-                 ->set("paid", $eventobj->amount / 100)
+                 ->set("paid", $iszdc ? $eventobj->amount_paid : ($eventobj->amount_paid / 100))
+                 ->set("currency", $Order->get("currency"))
                  ->save();
 
         $NewOrder->finishProcessing();

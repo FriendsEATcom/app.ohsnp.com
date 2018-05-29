@@ -288,7 +288,7 @@ class ComposerStaticInit01aa2a3b93f3203b07ec5bbafdd16f78
         array (
             'Alchemy' => 
             array (
-                0 => __DIR__ . '/..' . '/php-ffmpeg/binary-driver/src',
+                0 => __DIR__ . '/..' . '/alchemy/binary-driver/src',
             ),
         ),
     );

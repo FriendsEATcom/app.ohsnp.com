@@ -197,8 +197,8 @@
                                                     <div class="table-big-text"><?= __("Upcoming invoice") ?></div>
                                                     <div class="mb-20">
                                                         <?php 
-                                                            $amount = $recurring_subscription->plan->amount / 100;
                                                             $currency = strtoupper($recurring_subscription->plan->currency);
+                                                            $amount = isZeroDecimalCurrency($currency) ? round($recurring_subscription->plan->amount) : $recurring_subscription->plan->amount / 100;
                                                             $invoice_date = new \Moment\Moment(date("Y-m-d H:i:s", $recurring_subscription->current_period_end), 
                                                                                        date_default_timezone_get());
                                                             $invoice_date->setTimezone($AuthUser->get("preferences.timezone"));

@@ -105,7 +105,7 @@ class PostController extends Controller
 
         // Check media ids
         $media_ids = explode(",", Input::post("media_ids"));
-        foreach ($media_ids as $i => &$id) {
+        foreach ($media_ids as $i => $id) {
             if ((int)$id < 1) {
                 unset($media_ids[$i]);
             } else {
@@ -118,11 +118,17 @@ class PostController extends Controller
                ->whereIn("id", $media_ids);
         $res = $query->get();
 
-        $media_ids = [];
+        $valid_media_ids = [];
         $media_data = [];
         foreach ($res as $m) {
-            $media_ids[] = $m->id;
+            $valid_media_ids[] = $m->id;
             $media_data[$m->id] = $m;
+        }
+
+        foreach ($media_ids as $i => $id) {
+            if (!in_array($id, $valid_media_ids)) {
+                unset($media_ids[$i]);
+            }
         }
 
         if ($type == "album" && count($media_ids) < 2) {

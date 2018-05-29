@@ -162,7 +162,7 @@ class InstagramController extends Controller
         // Check media ids
         $user_files_dir = ROOTPATH . "/assets/uploads/" . $User->get("id");
         $media_ids = explode(",", $Post->get("media_ids"));
-        foreach ($media_ids as $i => &$id) {
+        foreach ($media_ids as $i => $id) {
             if ((int)$id < 1) {
                 unset($media_ids[$i]);
             } else {
@@ -175,15 +175,21 @@ class InstagramController extends Controller
                ->whereIn("id", $media_ids);
         $res = $query->get();
 
-        $media_ids = [];
+        $valid_media_ids = [];
         $media_data = [];
         foreach ($res as $m) {
             $ext = strtolower(pathinfo($m->filename, PATHINFO_EXTENSION));
 
             if (file_exists($user_files_dir."/".$m->filename) &&
                 in_array($ext, ["jpeg", "jpg", "png", "mp4"])) {
-                $media_ids[] = $m->id;
+                $valid_media_ids[] = $m->id;
                 $media_data[$m->id] = $m;
+            }
+        }
+
+        foreach ($media_ids as $i => $id) {
+            if (!in_array($id, $valid_media_ids)) {
+                unset($media_ids[$i]);
             }
         }
 
@@ -355,8 +361,8 @@ class InstagramController extends Controller
                         $temp_files_handlers[] = new \InstagramAPI\Media\Photo\InstagramPhoto($file_path, [
                             "targetFeed" => \InstagramAPI\Constants::FEED_TIMELINE_ALBUM,
                             "operation" => \InstagramAPI\Media\InstagramMedia::CROP,
-                            "minAspectRatio" => 1,
-                            "maxAspectRatio" => 1
+                            "minAspectRatio" => 1.0,
+                            "maxAspectRatio" => 1.0
                         ]);
                         $file_path = $temp_files_handlers[count($temp_files_handlers) - 1]->getFile();
                     }

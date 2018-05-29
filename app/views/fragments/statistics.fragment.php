@@ -132,7 +132,7 @@
                             </div>
                         </div>
                     <?php else: ?>
-                        <?php include APPPATH.'/views/fragments/noaccount.fragment.php' ?>
+                        <?php include APPPATH.'/views/fragments/noaccount.fragment.php'; ?>
                     <?php endif ?>
                 </div>
             </div>

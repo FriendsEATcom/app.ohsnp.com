@@ -31,7 +31,7 @@
 	    	if (is_int($uniqid) || ctype_digit($uniqid)) {
 	    		$col = $uniqid > 0 ? "id" : null;
 	    	} else {
-	    		$col = null;
+	    		$col = "payment_id";
 	    	}
 
 	    	if ($col) {
